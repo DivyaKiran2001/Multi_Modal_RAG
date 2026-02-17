@@ -1,3 +1,18 @@
+#requirements.txt
+playwright
+beautifulsoup4
+trafilatura
+lxml
+requests
+Pillow
+google-generativeai
+
+chromadb
+
+sentence-transformers
+
+# CPU-only torch (prevents CUDA download)
+torch --index-url https://download.pytorch.org/whl/cpu
 
 
 
