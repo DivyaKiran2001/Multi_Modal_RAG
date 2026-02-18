@@ -30,7 +30,7 @@ os.makedirs(PERSIST_DIR, exist_ok=True)
 # 🔑 Gemini API key
 
 
-genai.configure(api_key="AIzaSyBHnyoY3TBV-h2HrvcygkLDoO5HR1m6IYc")
+genai.configure(api_key="")
 
 
 # Gemini LLM for answering
