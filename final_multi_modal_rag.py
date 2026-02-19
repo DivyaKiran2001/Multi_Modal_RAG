@@ -598,7 +598,10 @@ async def main():
 
     answer = await ask_question(
         store,
-        "List the models in the agent engine diagram"
+        # "What are the tools present in the agent engine runtime diagram under the agent section?"
+        # "What are the Agent framweorks present in the agent engine runtime diagram under the agent frameworks section?"
+        # "What is the code for building the Vertex AI Agent Engine as mentioned in the diagram?"
+        "How to deploy from source files?"
     )
 
     print("\nFINAL ANSWER:\n", answer)
