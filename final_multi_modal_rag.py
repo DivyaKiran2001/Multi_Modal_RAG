@@ -1,12 +1,15 @@
+#requirements.txt
 google-generativeai
 faiss-cpu
 numpy
 aiohttp
 beautifulsoup4
-playwright
 trafilatura
 google-cloud-aiplatform
 google-adk
+
+
+
 
 
 
@@ -252,10 +255,8 @@ class MultiModalStore:
 
     Classify the user query into one of these three categories:
     TEXT   -> needs textual explanation only
-    IMAGE  -> refers specifically to diagrams, figures, or visuals
-    BOTH   -> requires both text and image understanding
 
-    Return ONLY one word: TEXT, IMAGE, or BOTH.
+    Return ONLY one word: TEXT
 
     Query: {query}
     """
