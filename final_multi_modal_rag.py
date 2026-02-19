@@ -1,3 +1,15 @@
+google-generativeai
+faiss-cpu
+numpy
+aiohttp
+beautifulsoup4
+playwright
+trafilatura
+google-cloud-aiplatform
+google-adk
+
+
+
 import asyncio
 import uuid
 import time
