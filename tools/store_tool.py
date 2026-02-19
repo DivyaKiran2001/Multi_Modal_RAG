@@ -7,6 +7,7 @@ import requests
 from vertexai.preview.vision_models import Image
 from .config import *
 
+
 class MultiModalStore:
 
     def __init__(self):
@@ -22,7 +23,7 @@ class MultiModalStore:
         vectors = []
 
         for i in range(0, len(texts), TEXT_BATCH_SIZE):
-            batch = texts[i:i+TEXT_BATCH_SIZE]
+            batch = texts[i:i + TEXT_BATCH_SIZE]
             time.sleep(REQUEST_DELAY)
 
             response = text_embedding_model.get_embeddings(batch)
@@ -33,6 +34,7 @@ class MultiModalStore:
         return vectors
 
     # ---------------- IMAGE EMBEDDING ----------------
+
     def embed_image(self, image_url):
 
         try:
@@ -41,9 +43,7 @@ class MultiModalStore:
             response = requests.get(image_url)
             response.raise_for_status()
 
-            # IMPORTANT: Use constructor, NOT load_from_bytes
             image = Image(image_bytes=response.content)
-
             emb = multimodal_model.get_embeddings(image=image)
 
             return np.array(emb.image_embedding).astype("float32")
@@ -51,8 +51,6 @@ class MultiModalStore:
         except Exception as e:
             print("Skipped image:", image_url, e)
             return None
-
- 
 
     # ---------------- QUERY EMBEDDING FOR IMAGE ----------------
 
@@ -64,6 +62,35 @@ class MultiModalStore:
         )
 
         return np.array(emb.text_embedding).astype("float32")
+
+    # ---------------- ROUTER ----------------
+
+    def route_query(self, query: str) -> str:
+        """
+        Uses Gemini to classify whether the query
+        needs TEXT, IMAGE, or BOTH retrieval.
+        """
+
+        prompt = f"""
+You are a query router.
+
+Classify the user query into one of these categories:
+TEXT   -> needs textual explanation only
+IMAGE  -> refers specifically to diagrams, figures, or visuals
+BOTH   -> requires both text and image understanding
+
+Return ONLY one word: TEXT, IMAGE, or BOTH.
+
+Query: {query}
+"""
+
+        response = gemini_model.generate_content(prompt)
+        decision = response.text.strip().upper()
+
+        if decision not in ["TEXT", "IMAGE", "BOTH"]:
+            return "BOTH"
+
+        return decision
 
     # ---------------- BUILD INDEXES ----------------
 
@@ -92,12 +119,10 @@ class MultiModalStore:
                 image_vectors.append(vec)
                 valid_images.append(img)
 
-        # Only continue if we have valid embeddings
         if len(image_vectors) > 0:
 
             image_vectors = np.vstack(image_vectors).astype("float32")
 
-            # Make sure it's 2D
             if len(image_vectors.shape) == 1:
                 image_vectors = image_vectors.reshape(1, -1)
 
@@ -111,31 +136,34 @@ class MultiModalStore:
         else:
             print("No valid image embeddings created.")
 
-
     # ---------------- SEARCH ----------------
 
-    def search(self, query, k=5):
+    def search(self, query, route):
 
         results = []
 
         # ---- TEXT SEARCH ----
-        q_text = self.embed_text_batch([query])[0].reshape(1, -1)
-        faiss.normalize_L2(q_text)
+        if route in ["TEXT", "BOTH"]:
 
-        if self.text_index:
-            _, idx = self.text_index.search(q_text, k)
-            for i in idx[0]:
-                results.append({
-                    "type": "text",
-                    "content": self.text_data[i]["text"]
-                })
+            q_text = self.embed_text_batch([query])[0].reshape(1, -1)
+            faiss.normalize_L2(q_text)
 
-        # ---- IMAGE SEARCH (IMPORTANT FIX) ----
-        if self.image_index:
+            if self.text_index:
+                _, idx = self.text_index.search(q_text, TOP_K_TEXT)
+
+                for i in idx[0]:
+                    results.append({
+                        "type": "text",
+                        "content": self.text_data[i]["text"]
+                    })
+
+        # ---- IMAGE SEARCH ----
+        if route in ["IMAGE", "BOTH"] and self.image_index:
+
             q_image = self.embed_query_for_image(query).reshape(1, -1)
             faiss.normalize_L2(q_image)
 
-            _, idx = self.image_index.search(q_image, 3)
+            _, idx = self.image_index.search(q_image, TOP_K_IMAGES)
 
             for i in idx[0]:
                 results.append({
@@ -144,4 +172,7 @@ class MultiModalStore:
                 })
 
         return results
+
+
+# Singleton instance
 store_instance = MultiModalStore()
