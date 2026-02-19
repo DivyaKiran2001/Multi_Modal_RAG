@@ -6,13 +6,27 @@ from .tools.parser_tool import parse_pages
 from .tools.store_tool import store_instance
 from .tools.qa_tool import ask_question_tool
 
+# -------------------------------
+# STATIC URL (FIXED)
+# -------------------------------
+
+STATIC_URL = "https://docs.cloud.google.com/agent-builder/agent-engine/overview"
+
+# Track whether index is already built
+_index_built = False
 
 
-async def build_index_tool(url: str) -> dict:
-    """
-    Crawls a website and builds multimodal index
-    """
-    crawl_data = await crawl_website(url)
+# -------------------------------
+# INTERNAL INDEX BUILDER
+# -------------------------------
+
+async def _ensure_index():
+    global _index_built
+
+    if _index_built:
+        return
+
+    crawl_data = await crawl_website(STATIC_URL)
     parsed = parse_pages(crawl_data["pages"])
 
     await store_instance.build(
@@ -20,24 +34,42 @@ async def build_index_tool(url: str) -> dict:
         parsed["images"]
     )
 
-    return {"status": "Index built successfully"}
+    _index_built = True
 
+
+# -------------------------------
+# PUBLIC QA TOOL
+# -------------------------------
+
+async def static_qa_tool(query: str) -> dict:
+    """
+    Answers questions using pre-indexed static documentation.
+    Automatically builds index if not already built.
+    """
+
+    await _ensure_index()
+
+    result = await ask_question_tool(query)
+
+    return result
+
+
+# -------------------------------
+# ROOT AGENT
+# -------------------------------
 
 root_agent = Agent(
-    name="multimodal_adk_web_agent",
+    name="agent_engine_doc_assistant",
     model="gemini-2.5-flash",
-    description="Multimodal ADK Web Agent with crawler, text+image RAG",
+    description="Answers questions about Vertex AI Agent Engine documentation.",
     instruction="""
-You are a multimodal web research agent.
+You are an expert assistant for Vertex AI Agent Engine documentation.
 
-You have access to tools:
-- build_index_tool → Crawl and index a website
-- ask_question_tool → Ask questions over the indexed website
+Answer user questions strictly using the indexed documentation content.
 
-Always build index before answering questions.
+Do not ask for URLs.
+Do not attempt to crawl new websites.
+Only answer questions about Agent Engine documentation.
 """,
-    tools=[
-        build_index_tool,
-        ask_question_tool
-    ],
+    tools=[static_qa_tool],
 )
